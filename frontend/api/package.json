@@ -1,0 +1,26 @@
+{
+	"name": "@panthershark/api",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"build": "protoc -I ../../proto --ts_out ./src --ts_opt optimize_code_size what-time-is-it.proto"
+	},
+	"devDependencies": {
+		"@protobuf-ts/grpcweb-transport": "^2.9.4",
+		"@protobuf-ts/plugin": "^2.9.4",
+		"@protobuf-ts/protoc": "^2.9.4",
+		"@protobuf-ts/runtime": "^2.9.4",
+		"@protobuf-ts/runtime-rpc": "^2.9.4",
+		"typescript": "^5.4.5"
+	},
+	"description": "api client for \"what time is it right now\" protobuf service",
+	"main": "src/index.ts",
+	"prettier": {
+		"singleQuote": true,
+		"trailingComma": "none",
+		"useTabs": true,
+		"tabWidth": 2,
+		"printWidth": 120
+	}
+}

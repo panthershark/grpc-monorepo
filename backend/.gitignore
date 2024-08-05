@@ -1,0 +1,6 @@
+.vscode
+*.env
+.env
+
+cmd/server/__debug_bin*
+vendor

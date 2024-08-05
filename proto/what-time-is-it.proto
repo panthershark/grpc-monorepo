@@ -1,0 +1,23 @@
+syntax = "proto3";
+package whattimeisit;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/panthershark/grpc-monorepo/backend/internal/whattimeisit";
+
+service WhatTimeIsItService {
+  rpc WhatTimeIsItRightNow(WhatTimeIsItRightNowRequest) returns (WhatTimeIsItRightNowResponse) {}
+  rpc WhatTimeIsItRightNowStream(WhatTimeIsItRightNowStreamRequest) returns (stream WhatTimeIsItRightNowStreamResponse) {}
+}
+
+message WhatTimeIsItRightNowRequest {}
+message WhatTimeIsItRightNowResponse {
+  google.protobuf.Timestamp now = 1;
+}
+
+message WhatTimeIsItRightNowStreamRequest {
+  int32 freq_ms = 1;
+}
+message WhatTimeIsItRightNowStreamResponse {
+  google.protobuf.Timestamp now = 1;
+}
