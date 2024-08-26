@@ -6,7 +6,8 @@ import { useCallback, useEffect, useMemo } from 'preact/hooks';
 export enum StreamOperationStatus {
 	Streaming,
 	Complete,
-	Error
+	Error,
+	Dead
 }
 
 export interface StreamOperation<Req, Resp> {
@@ -61,8 +62,6 @@ const createStreamFn =
 					op.value = { ...op.value, status: StreamOperationStatus.Complete, abort: () => {} };
 					break;
 				default:
-					abort();
-					onAbort();
 					throw new Error(`${status.code}:${status.detail}`);
 			}
 		} catch (e) {
@@ -79,6 +78,7 @@ const createStreamFn =
 
 interface StreamOptions {
 	reconnect?: boolean;
+	reconnectAttempts?: number;
 }
 
 // useStreamApi: factory to generate a hook from a grpc service wrapper. To make a call that returns a stream, use createStreamApiHook
@@ -110,10 +110,13 @@ export const useStreamApi = <Req extends object, Resp extends object>(
 						startStream(() => {
 							reconnect = false;
 						}),
-					{ retry: () => reconnect }
+					{ numOfAttempts: opts?.reconnectAttempts, retry: () => reconnect }
 				);
 			} catch (e) {
-				console.log(Object.keys(e as any), e);
+				if (reconnect) {
+					op.value = { status: StreamOperationStatus.Dead, req, abort: () => {} };
+				}
+				console.log('stream failed', Object.keys(e as any), e);
 			}
 		};
 

@@ -159,4 +159,30 @@ describe('useStreamApi', () => {
 		await sleep(200);
 		expect(streamer, 'reconnects').toHaveBeenCalledTimes(2);
 	});
+
+	it('marks operation DEAD when backoff gives up', async () => {
+		const abort = vi.fn();
+		const streamer = vi.fn().mockResolvedValue({
+			stream: {
+				status: { code: 'not used' },
+				responses: (async function* () {
+					throw new Error('eerrr');
+				})()
+			},
+			abort
+		});
+
+		const { result } = renderHook(() =>
+			useStreamApi<{ s: string }, { n: number }>(
+				streamer,
+				{ s: 'fqwahgaghads' },
+				{ reconnect: true, reconnectAttempts: 2 }
+			)
+		);
+
+		await waitFor(() => {
+			expect(result.current.value.status).toEqual(StreamOperationStatus.Dead);
+			expect(result.current.value.req).toEqual({ s: 'fqwahgaghads' });
+		});
+	});
 });
