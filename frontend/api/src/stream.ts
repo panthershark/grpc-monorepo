@@ -1,6 +1,7 @@
-import { Signal, useSignal } from '@preact/signals';
+import { Signal, signal } from '@preact/signals';
 import { ServerStreamingCall } from '@protobuf-ts/runtime-rpc';
-import { useCallback, useEffect } from 'preact/hooks';
+import { backOff } from 'exponential-backoff';
+import { useCallback, useEffect, useMemo } from 'preact/hooks';
 
 export enum StreamOperationStatus {
 	Streaming,
@@ -16,7 +17,7 @@ export interface StreamOperation<Req, Resp> {
 	abort: () => void;
 }
 
-interface StreamResponse<Req extends object, Resp extends object> {
+export interface StreamResponse<Req extends object, Resp extends object> {
 	stream: ServerStreamingCall<Req, Resp>;
 	abort: (reason?: any) => void;
 }
@@ -26,7 +27,7 @@ const createStreamFn =
 		op: Signal<StreamOperation<Req, Resp>>,
 		fn: (req: Req) => Promise<StreamResponse<Req, Resp>>
 	) =>
-	async () => {
+	async (onAbort: () => void) => {
 		const req = op.value.req;
 
 		try {
@@ -36,7 +37,10 @@ const createStreamFn =
 				status: StreamOperationStatus.Streaming,
 				req,
 				resp: undefined,
-				abort
+				abort: () => {
+					abort();
+					onAbort();
+				}
 			};
 
 			for await (let resp of stream.responses) {
@@ -44,7 +48,10 @@ const createStreamFn =
 					status: StreamOperationStatus.Streaming,
 					req,
 					resp,
-					abort
+					abort: () => {
+						abort();
+						onAbort();
+					}
 				};
 			}
 			let { status } = await stream;
@@ -54,42 +61,69 @@ const createStreamFn =
 					op.value = { ...op.value, status: StreamOperationStatus.Complete, abort: () => {} };
 					break;
 				default:
-					op.value = {
-						status: StreamOperationStatus.Error,
-						req,
-						err: new Error(`${status.code}:${status.detail}`),
-						abort: () => {}
-					};
-					break;
+					abort();
+					onAbort();
+					throw new Error(`${status.code}:${status.detail}`);
 			}
 		} catch (e) {
 			op.value = {
 				status: StreamOperationStatus.Error,
 				req,
-				err: new Error(JSON.stringify(e, null, 2)),
+				err: new Error(`${e}`),
 				abort: () => {}
 			};
+
+			throw e;
 		}
 	};
 
-// createStreamApiHook: returns a signal for the stream response from a grpc service.
-export const useStreamApiHook = <Req extends object, Resp extends object>(
-	fn: (req: Req) => Promise<StreamResponse<Req, Resp>>,
-	req: Req
-): Signal<StreamOperation<Req, Resp>> => {
-	const op = useSignal<StreamOperation<Req, Resp>>({
-		status: StreamOperationStatus.Streaming,
-		req,
-		abort: () => {}
-	});
+interface StreamOptions {
+	reconnect?: boolean;
+}
 
-	const startStream = useCallback(createStreamFn(op, fn), []);
+// useStreamApi: factory to generate a hook from a grpc service wrapper. To make a call that returns a stream, use createStreamApiHook
+export const useStreamApi = <Req extends object, Resp extends object>(
+	streamer: (req: Req) => Promise<StreamResponse<Req, Resp>>,
+	req: Req,
+	opts?: StreamOptions
+): Signal<StreamOperation<Req, Resp>> => {
+	const op = useMemo(
+		() =>
+			signal<StreamOperation<Req, Resp>>({
+				status: StreamOperationStatus.Streaming,
+				req,
+				abort: () => {}
+			}),
+		[]
+	);
+
+	const startStream = useCallback(createStreamFn(op, streamer), []);
 
 	useEffect(() => {
-		op.value.abort();
-		op.value.req = req;
-		startStream();
-	}, Object.values(req));
+		op.value = { ...op.value, req };
+		let reconnect = opts?.reconnect === true;
+
+		const run = async () => {
+			try {
+				await backOff(
+					() =>
+						startStream(() => {
+							reconnect = false;
+						}),
+					{ retry: () => reconnect }
+				);
+			} catch (e) {
+				console.log(Object.keys(e as any), e);
+			}
+		};
+
+		run();
+
+		return () => {
+			reconnect = false;
+			op.value.abort();
+		};
+	}, [req]);
 
 	return op;
 };

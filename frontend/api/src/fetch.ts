@@ -45,8 +45,8 @@ const createCallServiceFn =
 		}
 	};
 
-// useFetchApiHook: calls and returns a fetch service for a grpc service. Returns a signal representing the state of the operation and a function to refresh the fetch call (i.e. call it again)
-export const useFetchApiHook = <Req, Resp>(
+// useFetchApi: calls and returns a fetch service for a grpc service. Returns a signal representing the state of the operation and a function to refresh the fetch call (i.e. call it again)
+export const useFetchApi = <Req, Resp>(
 	fn: (req: Req) => Promise<Resp>,
 	initialCallParams?: Req
 ): [Signal<FetchOperation<Req, Resp>>, (req: Req) => void] => {

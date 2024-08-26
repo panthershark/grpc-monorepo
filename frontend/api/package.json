@@ -4,15 +4,21 @@
 	"version": "0.0.0",
 	"type": "module",
 	"scripts": {
-		"build": "protoc -I ../../proto --ts_out ./src --ts_opt optimize_code_size what-time-is-it.proto"
+		"build": "protoc -I ../../proto --ts_out ./src --ts_opt optimize_code_size what-time-is-it.proto",
+		"test": "vitest",
+		"test-watch": "vitest watch"
 	},
 	"devDependencies": {
+		"@preact/signals": "^1.3.0",
 		"@protobuf-ts/grpcweb-transport": "^2.9.4",
 		"@protobuf-ts/plugin": "^2.9.4",
 		"@protobuf-ts/protoc": "^2.9.4",
 		"@protobuf-ts/runtime": "^2.9.4",
 		"@protobuf-ts/runtime-rpc": "^2.9.4",
-		"typescript": "^5.4.5"
+		"exponential-backoff": "^3.1.1",
+		"typescript": "^5.4.5",
+		"vite": "^5.4.2",
+		"vitest": "^2.0.5"
 	},
 	"description": "api client for \"what time is it right now\" protobuf service",
 	"main": "src/index.ts",
